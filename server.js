@@ -263,6 +263,7 @@ async function resolveStream(target, sig, clientIp) {
   }
 }
 
+// 1. Kanal Oynatıcı Endpoint'i
 app.get(["/play", "/play/*"], async (req, res) => {
   let target = req.query.url;
   if (!target && req.path.startsWith("/play/")) {
@@ -284,6 +285,7 @@ app.get(["/play", "/play/*"], async (req, res) => {
   return res.redirect(302, dest);
 });
 
+// 2. M3U Playlist Endpoint'i (Hem group-title hem EXTGRP kategorili)
 app.get(["/", "/playlist.m3u8"], async (req, res) => {
   const host = req.get("host");
   const protocol = req.headers["x-forwarded-proto"] || req.protocol;
@@ -311,11 +313,15 @@ app.get(["/", "/playlist.m3u8"], async (req, res) => {
     const l = it.logo ? ` tvg-logo="${it.logo}"` : "";
     const t = it.tvgId ? ` tvg-id="${it.tvgId}"` : "";
     lines.push(`#EXTINF:-1${t} tvg-name="${it.title}"${l} group-title="${it.group}",${it.title}`);
+    lines.push(`#EXTGRP:${it.group}`);
     lines.push(`${baseResolver}?url=${encodeURIComponent(it.url)}`);
   }
 
   res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.send(lines.join("\n") + "\n");
 });
 
