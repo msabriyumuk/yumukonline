@@ -1,5 +1,5 @@
-const http = require("http");
-const { URL } = require("url");
+import http from "http";
+import { URL } from "url";
 
 const PORT = process.env.PORT || 3000;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
@@ -20,8 +20,8 @@ async function resolveIp(host) {
     });
     if (res.ok) {
       const json = await res.json();
-      const a = json && json.Answer && json.Answer.find(x => x.type === 1);
-      if (a && a.data) {
+      const a = json?.Answer?.find(x => x.type === 1);
+      if (a?.data) {
         _dns.set(host, a.data);
         return a.data;
       }
@@ -110,7 +110,6 @@ function sanitize(str) {
   return str.replace(/\s*(\.[a-zA-Z0-9]{1,3})+$/g, "").replace(/\s*\((?:\d+|[A-Za-z]{1,3})\)\s*$/g, "").trim();
 }
 
-// Otomatik Kategori Belirleyici
 function detectCategory(name, baseGroup) {
   const n = (name || "").toUpperCase();
 
@@ -257,7 +256,7 @@ async function resolveStream(target, sig, clientIp) {
     if (!res.ok) return null;
     const d = await res.json();
     if (Array.isArray(d) && d.length > 0 && d[0].url) return d[0].url;
-    return d.url || (d.data && d.data.url) || (d.js && d.js.url) || null;
+    return d.url || d.data?.url || d.js?.url || null;
   } catch (_) {
     return null;
   }
@@ -307,7 +306,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 2. M3U Playlist Endpoint'i (Hem group-title hem #EXTGRP destekli)
+  // 2. M3U Playlist Endpoint'i (Kategorili + EXTGRP Destekli)
   const host = req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "http";
   const baseResolver = `${proto}://${host}/play`;
