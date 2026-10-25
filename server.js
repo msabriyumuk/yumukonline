@@ -4,7 +4,7 @@ import { URL } from "url";
 const PORT = process.env.PORT || 3000;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
 const VER = "3.1.4";
-const GROUPS = ["Turkey", "Germany"];
+const GROUPS = ["Turkey"];
 
 let _sig = null;
 let _exp = 0;
@@ -112,75 +112,60 @@ function cleanName(str) {
   return s;
 }
 
-// Kategorilendirme (beIN, S Sport ve Tivibu Spor ayrı gruplar)
-function detectCategory(name, baseGroup) {
+function detectCategory(name) {
   const n = (name || "").toUpperCase();
 
-  if (baseGroup === "Turkey") {
-    // 1. beIN Sports kanalları
-    if (/BEIN\s*SPORTS?|BEIN\s*SPORT|BEINSPORTS?/i.test(n)) {
-      return "TR: BEIN SPORTS";
-    }
-
-    // 2. S Sport kanalları
-    if (/S\s*SPORT|SSPORT/i.test(n)) {
-      return "TR: S SPORT";
-    }
-
-    // 3. Tivibu Spor kanalları
-    if (/TIVIBU\s*SPOR|TİVİBU\s*SPOR/i.test(n)) {
-      return "TR: TIVIBU SPOR";
-    }
-
-    // 4. Genel Spor kanalları
-    if (/SPOR|SMART SPOR|EUROSPORT|F1|FORMULA|NBA|GOL|MATCH|FIGHT|A SPOR|TRT SPOR/i.test(n)) {
-      return "TR: SPOR";
-    }
-
-    // 5. Sinema & Dizi
-    if (/SINEMA|CINEMA|FILM|ACTION|COMEDY|FAMILY|MOVIE|DIZI|PREMIERE/i.test(n)) {
-      return "TR: SİNEMA & DİZİ";
-    }
-
-    // 6. Belgesel
-    if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH|EARTH/i.test(n)) {
-      return "TR: BELGESEL";
-    }
-
-    // 7. Çocuk
-    if (/COCUK|ÇOCUK|CARTOON|NICK|DISNEY|BOOMERANG|MINIKA|TRT COCUK/i.test(n)) {
-      return "TR: ÇOCUK";
-    }
-
-    // 8. Haber
-    if (/HABER|NEWS|CNN|NTV|HABERTURK|A HABER|TRT HABER|TELE1|HALK TV|SOZCU/i.test(n)) {
-      return "TR: HABER";
-    }
-
-    // 9. Müzik
-    if (/MUZIK|MÜZİK|MUSIC|KRAL|POWERTURK|NUMBER ONE|DREAM/i.test(n)) {
-      return "TR: MÜZİK";
-    }
-
-    // 10. Ulusal
-    if (/ATV|KANAL D|SHOW|STAR|TRT 1|NOW|TV8|BEYAZ|KANAL 7/i.test(n)) {
-      return "TR: ULUSAL";
-    }
-
-    return "TR: GENEL";
+  // 1. BEIN SPORTS
+  if (/BEIN\s*SPORTS?|BEIN\s*SPORT|BEINSPORTS?/i.test(n)) {
+    return "01. TR: BEIN SPORTS";
   }
 
-  if (baseGroup === "Germany") {
-    if (/SPORT|SKY SPORT|DAZN|BUNDESLIGA|EUROSPORT/i.test(n)) {
-      return "DE: SPORT";
-    }
-    if (/CINEMA|FILM|SKY CINEMA|ACTION/i.test(n)) {
-      return "DE: CINEMA";
-    }
-    return "DE: ALLGEMEIN";
+  // 2. S SPORT
+  if (/S\s*SPORT|SSPORT/i.test(n)) {
+    return "02. TR: S SPORT";
   }
 
-  return baseGroup;
+  // 3. TIVIBU SPOR
+  if (/TIVIBU\s*SPOR|TİVİBU\s*SPOR/i.test(n)) {
+    return "03. TR: TIVIBU SPOR";
+  }
+
+  // 4. DİĞER SPOR KANALLARI
+  if (/SPOR|SMART SPOR|EUROSPORT|F1|FORMULA|NBA|GOL|MATCH|FIGHT|A SPOR|TRT SPOR/i.test(n)) {
+    return "04. TR: SPOR";
+  }
+
+  // 5. ULUSAL
+  if (/ATV|KANAL D|SHOW|STAR|TRT 1|NOW|TV8|BEYAZ|KANAL 7/i.test(n)) {
+    return "05. TR: ULUSAL";
+  }
+
+  // 6. SİNEMA & DİZİ
+  if (/SINEMA|CINEMA|FILM|ACTION|COMEDY|FAMILY|MOVIE|DIZI|PREMIERE/i.test(n)) {
+    return "06. TR: SİNEMA & DİZİ";
+  }
+
+  // 7. BELGESEL
+  if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH|EARTH/i.test(n)) {
+    return "07. TR: BELGESEL";
+  }
+
+  // 8. HABER
+  if (/HABER|NEWS|CNN|NTV|HABERTURK|A HABER|TRT HABER|TELE1|HALK TV|SOZCU/i.test(n)) {
+    return "08. TR: HABER";
+  }
+
+  // 9. ÇOCUK
+  if (/COCUK|ÇOCUK|CARTOON|NICK|DISNEY|BOOMERANG|MINIKA|TRT COCUK/i.test(n)) {
+    return "09. TR: ÇOCUK";
+  }
+
+  // 10. MÜZİK
+  if (/MUZIK|MÜZİK|MUSIC|KRAL|POWERTURK|NUMBER ONE|DREAM/i.test(n)) {
+    return "10. TR: MÜZİK";
+  }
+
+  return "11. TR: GENEL";
 }
 
 async function collect(group, sig) {
@@ -240,7 +225,7 @@ async function collect(group, sig) {
         const imgs = itm.images || {};
         const logo = imgs.logo || imgs.poster || itm.logo || itm.poster || "";
         const tvgId = (itm.ids && itm.ids.tvg) ? itm.ids.tvg : "";
-        const category = detectCategory(title, group);
+        const category = detectCategory(title);
 
         items.push({ title, url, group: category, logo, tvgId });
       }
@@ -338,7 +323,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 2. M3U Playlist (beIN, S Sport ve Tivibu Spor en üstte)
+  // 2. M3U Playlist
   const host = req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "http";
   const baseResolver = `${proto}://${host}/play`;
@@ -354,31 +339,12 @@ const server = http.createServer(async (req, res) => {
     playlist = playlist.concat(r);
   }
 
-  // Kanalları öncelik gruplarına ayırma
-  const beinChannels = [];
-  const ssportChannels = [];
-  const tivibuChannels = [];
-  const otherChannels = [];
-
-  for (const it of playlist) {
-    if (it.group === "TR: BEIN SPORTS") {
-      beinChannels.push(it);
-    } else if (it.group === "TR: S SPORT") {
-      ssportChannels.push(it);
-    } else if (it.group === "TR: TIVIBU SPOR") {
-      tivibuChannels.push(it);
-    } else {
-      otherChannels.push(it);
-    }
-  }
-
-  // Kendi içlerinde isimlerine göre sırala (1, 2, 3...)
-  beinChannels.sort((a, b) => a.title.localeCompare(b.title, "tr", { numeric: true }));
-  ssportChannels.sort((a, b) => a.title.localeCompare(b.title, "tr", { numeric: true }));
-  tivibuChannels.sort((a, b) => a.title.localeCompare(b.title, "tr", { numeric: true }));
-
-  // Liste Sıralaması: beIN -> S Sport -> Tivibu -> Diğerleri
-  const finalPlaylist = [...beinChannels, ...ssportChannels, ...tivibuChannels, ...otherChannels];
+  // Kategorilere göre sıralama
+  playlist.sort((a, b) => {
+    const groupCompare = a.group.localeCompare(b.group, "tr", { numeric: true });
+    if (groupCompare !== 0) return groupCompare;
+    return a.title.localeCompare(b.title, "tr", { numeric: true });
+  });
 
   const lines = [
     "#EXTM3U",
@@ -388,7 +354,7 @@ const server = http.createServer(async (req, res) => {
   ];
 
   let channelNumber = 1;
-  for (const it of finalPlaylist) {
+  for (const it of playlist) {
     const l = it.logo ? ` tvg-logo="${it.logo}"` : "";
     const t = it.tvgId ? ` tvg-id="${it.tvgId}"` : "";
     const chno = ` tvg-chno="${channelNumber++}"`;
