@@ -105,9 +105,13 @@ async function getSig() {
   return _sig;
 }
 
-function sanitize(str) {
+// Kanal ismini bozmadan temizleyen düzeltilmiş fonksiyon
+function cleanName(str) {
   if (!str) return "Kanal";
-  return str.replace(/\s*(\.[a-zA-Z0-9]{1,3})+$/g, "").replace(/\s*\((?:\d+|[A-Za-z]{1,3})\)\s*$/g, "").trim();
+  let s = str.trim();
+  // Sondaki (1), (2), (HD), (FHD) gibi parantezli kısımları temizler ama kelimeyi kesmez
+  s = s.replace(/\s*\([0-9A-Za-z]+\)\s*$/g, "").trim();
+  return s;
 }
 
 function detectCategory(name, baseGroup) {
@@ -120,7 +124,7 @@ function detectCategory(name, baseGroup) {
     if (/SINEMA|CINEMA|FILM|ACTION|COMEDY|FAMILY|MOVIE|DIZI|PREMIERE/i.test(n)) {
       return "TR: SİNEMA & DİZİ";
     }
-    if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH/i.test(n)) {
+    if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH|EARTH/i.test(n)) {
       return "TR: BELGESEL";
     }
     if (/COCUK|ÇOCUK|CARTOON|NICK|DISNEY|BOOMERANG|MINIKA|TRT COCUK/i.test(n)) {
@@ -194,7 +198,7 @@ async function collect(group, sig) {
       if (!batch.length) break;
 
       for (const itm of batch) {
-        const title = sanitize(itm.name || "");
+        const title = cleanName(itm.name || "");
         let id = (itm.ids && itm.ids.id) ? itm.ids.id : (itm.id || "");
         let url = itm.url || itm.play || "";
 
@@ -306,7 +310,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 2. M3U Playlist Endpoint'i (Kategorili + EXTGRP Destekli)
+  // 2. M3U Playlist Endpoint'i
   const host = req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "http";
   const baseResolver = `${proto}://${host}/play`;
