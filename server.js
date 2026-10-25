@@ -110,6 +110,48 @@ function sanitize(str) {
   return str.replace(/\s*(\.[a-zA-Z0-9]{1,3})+$/g, "").replace(/\s*\((?:\d+|[A-Za-z]{1,3})\)\s*$/g, "").trim();
 }
 
+// Otomatik Kategori Belirleyici
+function detectCategory(name, baseGroup) {
+  const n = (name || "").toUpperCase();
+
+  if (baseGroup === "Turkey") {
+    if (/SPOR|BEIN|SSPORT|TIVIBU SPOR|SMART SPOR|EUROSPORT|F1|NBA|GOL|MATCH|FIGHT/i.test(n)) {
+      return "TR: SPOR";
+    }
+    if (/SINEMA|CINEMA|FILM|ACTION|COMEDY|FAMILY|MOVIE|DIZI|PREMIERE/i.test(n)) {
+      return "TR: SİNEMA & DİZİ";
+    }
+    if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH/i.test(n)) {
+      return "TR: BELGESEL";
+    }
+    if (/COCUK|ÇOCUK|CARTOON|NICK|DISNEY|BOOMERANG|MINIKA|TRT COCUK/i.test(n)) {
+      return "TR: ÇOCUK";
+    }
+    if (/HABER|NEWS|CNN|NTV|HABERTURK|A HABER|TRT HABER|TELE1|HALK TV|SOZCU/i.test(n)) {
+      return "TR: HABER";
+    }
+    if (/MUZIK|MÜZİK|MUSIC|KRAL|POWERTURK|NUMBER ONE|DREAM/i.test(n)) {
+      return "TR: MÜZİK";
+    }
+    if (/ATV|KANAL D|SHOW|STAR|TRT 1|NOW|TV8|BEYAZ|KANAL 7/i.test(n)) {
+      return "TR: ULUSAL";
+    }
+    return "TR: GENEL";
+  }
+
+  if (baseGroup === "Germany") {
+    if (/SPORT|SKY SPORT|DAZN|BUNDESLIGA|EUROSPORT/i.test(n)) {
+      return "DE: SPORT";
+    }
+    if (/CINEMA|FILM|SKY CINEMA|ACTION/i.test(n)) {
+      return "DE: CINEMA";
+    }
+    return "DE: ALLGEMEIN";
+  }
+
+  return baseGroup;
+}
+
 async function collect(group, sig) {
   const items = [];
   let cursor = 0;
@@ -167,8 +209,9 @@ async function collect(group, sig) {
         const imgs = itm.images || {};
         const logo = imgs.logo || imgs.poster || itm.logo || itm.poster || "";
         const tvgId = (itm.ids && itm.ids.tvg) ? itm.ids.tvg : "";
+        const category = detectCategory(title, group);
 
-        items.push({ title, url, group, logo, tvgId });
+        items.push({ title, url, group: category, logo, tvgId });
       }
 
       cursor = json.nextCursor;
@@ -233,7 +276,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 1. Kanal Çözme (/play)
+  // 1. Kanal Çözücü Yönlendirme Endpoint'i
   if (pathname === "/play" || pathname.startsWith("/play/")) {
     let target = parsedUrl.searchParams.get("url");
     if (!target && pathname.startsWith("/play/")) {
@@ -264,7 +307,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 2. M3U Listesi (/ veya /playlist.m3u8)
+  // 2. M3U Playlist Endpoint'i (Hem group-title hem #EXTGRP destekli)
   const host = req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "http";
   const baseResolver = `${proto}://${host}/play`;
@@ -291,13 +334,16 @@ const server = http.createServer(async (req, res) => {
     const l = it.logo ? ` tvg-logo="${it.logo}"` : "";
     const t = it.tvgId ? ` tvg-id="${it.tvgId}"` : "";
     lines.push(`#EXTINF:-1${t} tvg-name="${it.title}"${l} group-title="${it.group}",${it.title}`);
+    lines.push(`#EXTGRP:${it.group}`);
     lines.push(`${baseResolver}?url=${encodeURIComponent(it.url)}`);
   }
 
   res.writeHead(200, {
     "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "public, max-age=1800"
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
   });
   return res.end(lines.join("\n") + "\n");
 });
