@@ -1,8 +1,7 @@
-const express = require("express");
+const http = require("http");
+const { URL } = require("url");
 
-const app = express();
 const PORT = process.env.PORT || 3000;
-
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
 const VER = "3.1.4";
 const GROUPS = ["Turkey", "Germany"];
@@ -221,35 +220,56 @@ async function resolveStream(target, sig, clientIp) {
   }
 }
 
-// 1. Kanal Çözücü
-app.get(["/play", "/play/*"], async (req, res) => {
-  let target = req.query.url;
-  if (!target && req.path.startsWith("/play/")) {
-    const part = req.path.replace("/play/", "").trim();
-    if (part) target = part.startsWith("http") ? part : `https://vavoo.to/vavoo-iptv/play/${part}`;
+const server = http.createServer(async (req, res) => {
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  const pathname = parsedUrl.pathname;
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "*"
+    });
+    return res.end();
   }
 
-  if (!target) return res.status(400).send("Bad Request");
+  // 1. Kanal Çözme (/play)
+  if (pathname === "/play" || pathname.startsWith("/play/")) {
+    let target = parsedUrl.searchParams.get("url");
+    if (!target && pathname.startsWith("/play/")) {
+      const part = pathname.replace("/play/", "").trim();
+      if (part) target = part.startsWith("http") ? part : `https://vavoo.to/vavoo-iptv/play/${part}`;
+    }
 
-  const clientIp = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress;
-  const sig = await getSig();
-  const resolved = await resolveStream(target, sig, clientIp);
+    if (!target) {
+      res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+      return res.end("Bad Request");
+    }
 
-  if (!resolved) return res.status(502).send("Service Unavailable");
+    const clientIp = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress;
+    const sig = await getSig();
+    const resolved = await resolveStream(target, sig, clientIp);
 
-  const dest = await transformUrl(resolved);
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  return res.redirect(302, dest);
-});
+    if (!resolved) {
+      res.writeHead(502, { "Content-Type": "text/plain; charset=utf-8" });
+      return res.end("Service Unavailable");
+    }
 
-// 2. M3U Playlist (Kategorisiz, sade liste)
-app.get(["/", "/playlist.m3u8"], async (req, res) => {
-  const host = req.get("host");
-  const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-  const baseResolver = `${protocol}://${host}/play`;
+    const dest = await transformUrl(resolved);
+    res.writeHead(302, {
+      "Location": dest,
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-cache, no-store, must-revalidate"
+    });
+    return res.end();
+  }
 
-  const qGroups = req.query.groups;
+  // 2. M3U Listesi (/ veya /playlist.m3u8)
+  const host = req.headers.host;
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const baseResolver = `${proto}://${host}/play`;
+
+  const qGroups = parsedUrl.searchParams.get("groups");
   const targetGroups = qGroups ? qGroups.split(",").map(x => x.trim()) : GROUPS;
 
   const sig = await getSig();
@@ -274,11 +294,14 @@ app.get(["/", "/playlist.m3u8"], async (req, res) => {
     lines.push(`${baseResolver}?url=${encodeURIComponent(it.url)}`);
   }
 
-  res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.send(lines.join("\n") + "\n");
+  res.writeHead(200, {
+    "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "public, max-age=1800"
+  });
+  return res.end(lines.join("\n") + "\n");
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Sunucu aktif: Port ${PORT}`);
 });
