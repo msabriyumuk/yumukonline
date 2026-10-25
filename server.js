@@ -112,47 +112,57 @@ function cleanName(str) {
   return s;
 }
 
-// Kategorilendirme (beIN Sports ayrı grup olarak eklendi)
+// Kategorilendirme (beIN, S Sport ve Tivibu Spor ayrı gruplar)
 function detectCategory(name, baseGroup) {
   const n = (name || "").toUpperCase();
 
   if (baseGroup === "Turkey") {
-    // 1. Önce beIN Sports kanallarını yakala ve ayrı kategori yap
+    // 1. beIN Sports kanalları
     if (/BEIN\s*SPORTS?|BEIN\s*SPORT|BEINSPORTS?/i.test(n)) {
       return "TR: BEIN SPORTS";
     }
 
-    // 2. Diğer spor kanalları
-    if (/SPOR|SSPORT|S SPORT|TIVIBU SPOR|SMART SPOR|EUROSPORT|F1|FORMULA|NBA|GOL|MATCH|FIGHT|A SPOR|TRT SPOR/i.test(n)) {
+    // 2. S Sport kanalları
+    if (/S\s*SPORT|SSPORT/i.test(n)) {
+      return "TR: S SPORT";
+    }
+
+    // 3. Tivibu Spor kanalları
+    if (/TIVIBU\s*SPOR|TİVİBU\s*SPOR/i.test(n)) {
+      return "TR: TIVIBU SPOR";
+    }
+
+    // 4. Genel Spor kanalları
+    if (/SPOR|SMART SPOR|EUROSPORT|F1|FORMULA|NBA|GOL|MATCH|FIGHT|A SPOR|TRT SPOR/i.test(n)) {
       return "TR: SPOR";
     }
 
-    // 3. Sinema & Dizi
+    // 5. Sinema & Dizi
     if (/SINEMA|CINEMA|FILM|ACTION|COMEDY|FAMILY|MOVIE|DIZI|PREMIERE/i.test(n)) {
       return "TR: SİNEMA & DİZİ";
     }
 
-    // 4. Belgesel
+    // 6. Belgesel
     if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH|EARTH/i.test(n)) {
       return "TR: BELGESEL";
     }
 
-    // 5. Çocuk
+    // 7. Çocuk
     if (/COCUK|ÇOCUK|CARTOON|NICK|DISNEY|BOOMERANG|MINIKA|TRT COCUK/i.test(n)) {
       return "TR: ÇOCUK";
     }
 
-    // 6. Haber
+    // 8. Haber
     if (/HABER|NEWS|CNN|NTV|HABERTURK|A HABER|TRT HABER|TELE1|HALK TV|SOZCU/i.test(n)) {
       return "TR: HABER";
     }
 
-    // 7. Müzik
+    // 9. Müzik
     if (/MUZIK|MÜZİK|MUSIC|KRAL|POWERTURK|NUMBER ONE|DREAM/i.test(n)) {
       return "TR: MÜZİK";
     }
 
-    // 8. Ulusal
+    // 10. Ulusal
     if (/ATV|KANAL D|SHOW|STAR|TRT 1|NOW|TV8|BEYAZ|KANAL 7/i.test(n)) {
       return "TR: ULUSAL";
     }
@@ -328,7 +338,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 2. M3U Playlist
+  // 2. M3U Playlist (beIN, S Sport ve Tivibu Spor en üstte)
   const host = req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "http";
   const baseResolver = `${proto}://${host}/play`;
@@ -344,6 +354,32 @@ const server = http.createServer(async (req, res) => {
     playlist = playlist.concat(r);
   }
 
+  // Kanalları öncelik gruplarına ayırma
+  const beinChannels = [];
+  const ssportChannels = [];
+  const tivibuChannels = [];
+  const otherChannels = [];
+
+  for (const it of playlist) {
+    if (it.group === "TR: BEIN SPORTS") {
+      beinChannels.push(it);
+    } else if (it.group === "TR: S SPORT") {
+      ssportChannels.push(it);
+    } else if (it.group === "TR: TIVIBU SPOR") {
+      tivibuChannels.push(it);
+    } else {
+      otherChannels.push(it);
+    }
+  }
+
+  // Kendi içlerinde isimlerine göre sırala (1, 2, 3...)
+  beinChannels.sort((a, b) => a.title.localeCompare(b.title, "tr", { numeric: true }));
+  ssportChannels.sort((a, b) => a.title.localeCompare(b.title, "tr", { numeric: true }));
+  tivibuChannels.sort((a, b) => a.title.localeCompare(b.title, "tr", { numeric: true }));
+
+  // Liste Sıralaması: beIN -> S Sport -> Tivibu -> Diğerleri
+  const finalPlaylist = [...beinChannels, ...ssportChannels, ...tivibuChannels, ...otherChannels];
+
   const lines = [
     "#EXTM3U",
     `#EXT-X-USER-AGENT:${UA}`,
@@ -351,10 +387,12 @@ const server = http.createServer(async (req, res) => {
     "#EXT-X-ORIGIN:https://vavoo.to"
   ];
 
-  for (const it of playlist) {
+  let channelNumber = 1;
+  for (const it of finalPlaylist) {
     const l = it.logo ? ` tvg-logo="${it.logo}"` : "";
     const t = it.tvgId ? ` tvg-id="${it.tvgId}"` : "";
-    lines.push(`#EXTINF:-1${t} tvg-name="${it.title}"${l} group-title="${it.group}",${it.title}`);
+    const chno = ` tvg-chno="${channelNumber++}"`;
+    lines.push(`#EXTINF:-1${t}${chno} tvg-name="${it.title}"${l} group-title="${it.group}",${it.title}`);
     lines.push(`#EXTGRP:${it.group}`);
     lines.push(`${baseResolver}?url=${encodeURIComponent(it.url)}`);
   }
