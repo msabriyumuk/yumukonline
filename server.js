@@ -105,40 +105,58 @@ async function getSig() {
   return _sig;
 }
 
-// Kanal ismini bozmadan temizleyen düzeltilmiş fonksiyon
 function cleanName(str) {
   if (!str) return "Kanal";
   let s = str.trim();
-  // Sondaki (1), (2), (HD), (FHD) gibi parantezli kısımları temizler ama kelimeyi kesmez
   s = s.replace(/\s*\([0-9A-Za-z]+\)\s*$/g, "").trim();
   return s;
 }
 
+// Kategorilendirme (beIN Sports ayrı grup olarak eklendi)
 function detectCategory(name, baseGroup) {
   const n = (name || "").toUpperCase();
 
   if (baseGroup === "Turkey") {
-    if (/SPOR|BEIN|SSPORT|TIVIBU SPOR|SMART SPOR|EUROSPORT|F1|NBA|GOL|MATCH|FIGHT/i.test(n)) {
+    // 1. Önce beIN Sports kanallarını yakala ve ayrı kategori yap
+    if (/BEIN\s*SPORTS?|BEIN\s*SPORT|BEINSPORTS?/i.test(n)) {
+      return "TR: BEIN SPORTS";
+    }
+
+    // 2. Diğer spor kanalları
+    if (/SPOR|SSPORT|S SPORT|TIVIBU SPOR|SMART SPOR|EUROSPORT|F1|FORMULA|NBA|GOL|MATCH|FIGHT|A SPOR|TRT SPOR/i.test(n)) {
       return "TR: SPOR";
     }
+
+    // 3. Sinema & Dizi
     if (/SINEMA|CINEMA|FILM|ACTION|COMEDY|FAMILY|MOVIE|DIZI|PREMIERE/i.test(n)) {
       return "TR: SİNEMA & DİZİ";
     }
+
+    // 4. Belgesel
     if (/BELGESEL|DOCU|NAT GEO|DISCOVERY|ANIMAL|HISTORY|BBC EARTH|EARTH/i.test(n)) {
       return "TR: BELGESEL";
     }
+
+    // 5. Çocuk
     if (/COCUK|ÇOCUK|CARTOON|NICK|DISNEY|BOOMERANG|MINIKA|TRT COCUK/i.test(n)) {
       return "TR: ÇOCUK";
     }
+
+    // 6. Haber
     if (/HABER|NEWS|CNN|NTV|HABERTURK|A HABER|TRT HABER|TELE1|HALK TV|SOZCU/i.test(n)) {
       return "TR: HABER";
     }
+
+    // 7. Müzik
     if (/MUZIK|MÜZİK|MUSIC|KRAL|POWERTURK|NUMBER ONE|DREAM/i.test(n)) {
       return "TR: MÜZİK";
     }
+
+    // 8. Ulusal
     if (/ATV|KANAL D|SHOW|STAR|TRT 1|NOW|TV8|BEYAZ|KANAL 7/i.test(n)) {
       return "TR: ULUSAL";
     }
+
     return "TR: GENEL";
   }
 
@@ -279,7 +297,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 1. Kanal Çözücü Yönlendirme Endpoint'i
+  // 1. Kanal Çözücü Yönlendirme
   if (pathname === "/play" || pathname.startsWith("/play/")) {
     let target = parsedUrl.searchParams.get("url");
     if (!target && pathname.startsWith("/play/")) {
@@ -310,7 +328,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // 2. M3U Playlist Endpoint'i
+  // 2. M3U Playlist
   const host = req.headers.host;
   const proto = req.headers["x-forwarded-proto"] || "http";
   const baseResolver = `${proto}://${host}/play`;
