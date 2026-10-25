@@ -1,4 +1,4 @@
-import express from "express";
+const express = require("express");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,8 +21,8 @@ async function resolveIp(host) {
     });
     if (res.ok) {
       const json = await res.json();
-      const a = json?.Answer?.find(x => x.type === 1);
-      if (a?.data) {
+      const a = json && json.Answer && json.Answer.find(x => x.type === 1);
+      if (a && a.data) {
         _dns.set(host, a.data);
         return a.data;
       }
@@ -58,7 +58,7 @@ async function getSig() {
     locale: "en",
     theme: "dark",
     metadata: {
-      device: { type: "desktop", uniqueId: crypto.randomUUID() },
+      device: { type: "desktop", uniqueId: "3a8c7b6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d" },
       os: { name: "win32", version: "Windows 10 Pro", abis: ["x64"], host: "Lenovo" },
       app: { platform: "electron" },
       version: { package: "net.vypn.app", binary: "3.1.0", js: "3.1.0" }
@@ -108,11 +108,11 @@ async function getSig() {
 
 function sanitize(str) {
   if (!str) return "Kanal";
-  return str.replace(/\s*(\.[a-zA-Z0-9]{1,3})+$/g, "").replace(/\s*\((?:\d+\vert{}[A-Za-z]{1,3})\)\s*$/g, "").trim();
+  return str.replace(/\s*(\.[a-zA-Z0-9]{1,3})+$/g, "").replace(/\s*\((?:\d+|[A-Za-z]{1,3})\)\s*$/g, "").trim();
 }
 
 function detectCategory(name, baseGroup) {
-  const n = name.toUpperCase();
+  const n = (name || "").toUpperCase();
 
   if (baseGroup === "Turkey") {
     if (/SPOR|BEIN|SSPORT|TIVIBU SPOR|SMART SPOR|EUROSPORT|F1|NBA|GOL|MATCH|FIGHT/i.test(n)) {
@@ -257,7 +257,7 @@ async function resolveStream(target, sig, clientIp) {
     if (!res.ok) return null;
     const d = await res.json();
     if (Array.isArray(d) && d.length > 0 && d[0].url) return d[0].url;
-    return d.url || d.data?.url || d.js?.url || null;
+    return d.url || (d.data && d.data.url) || (d.js && d.js.url) || null;
   } catch (_) {
     return null;
   }
@@ -315,4 +315,10 @@ app.get(["/", "/playlist.m3u8"], async (req, res) => {
   }
 
   res.setHeader("Content-Type", "application/vnd.apple.mpegurl; charset=utf-8");
-  res.setHeader("Access-Control-Allow-Origin",
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.send(lines.join("\n") + "\n");
+});
+
+app.listen(PORT, () => {
+  console.log(`Sunucu aktif: Port ${PORT}`);
+});
